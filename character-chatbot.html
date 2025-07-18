@@ -2491,16 +2491,7 @@
                 console.log('No valid API key provided, using fallback response');
                 return getFallbackResponse(userMessage, character);
             }
-
-            // Try multiple free AI APIs in order of preference
-            const apis = [
-                {
-                    name: 'Google AI Studio',
-                    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
-                    key: apiKey
-                }
-            ];
-
+        
             // Get recent conversation context
             const conversation = conversations[character.id] || [];
             const recentMessages = conversation.slice(-6); // Last 6 messages for context
@@ -2514,29 +2505,36 @@
                     contextHistory += `${character.name}: ${msg.message}\n`;
                 }
             });
-
-            // Create character prompt
-            const systemPrompt = `You are ${character.name}. Here's your character description:
-
-${character.description}
-
-Important guidelines:
-- Stay in character at all times
-- Respond naturally and conversationally
-- Reference your background and personality
-- Keep responses to 1-3 sentences unless the situation calls for more
-- Be consistent with your established traits and history
-
-Previous conversation context:
-${contextHistory}
-
-Current message from human: ${userMessage}
-
-Respond as ${character.name}:`;
-
-            // Try Google AI Studio first (most reliable free option)
+        
+            // IMPROVED: Create structured character prompt that separates different aspects
+            const systemPrompt = `You are ${character.name}, engaging in a natural conversation.
+        
+        Character Background:
+        ${character.description}
+        
+        Personality Traits: 
+        ${character.personality}
+        
+        Species/Type: ${character.species || 'Unknown'}
+        
+        Conversation Rules:
+        - Respond naturally as this character would in real life
+        - Only mention interests/hobbies that are actually relevant to the current topic
+        - Don't force connections between your different interests or background elements
+        - If the conversation is about your background, focus on your background. If it's about your interests, focus on your interests. Don't combine them unless there's a genuine reason
+        - You have multiple separate aspects to your personality - they don't all need to connect
+        - Be selective about which traits to show in each response
+        - Keep responses conversational (1-3 sentences unless more detail is naturally needed)
+        
+        Previous conversation:
+        ${contextHistory}
+        
+        Human just said: ${userMessage}
+        
+        Respond naturally as ${character.name}:`;
+        
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apis[0].key}`, {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2549,9 +2547,8 @@ Respond as ${character.name}:`;
                         }],
                         generationConfig: {
                             temperature: 0.9,
-                            topK: 1,
-                            topP: 1,
-                            maxOutputTokens: 200,
+                            topP: 0.95,
+                            maxOutputTokens: 800,
                             stopSequences: []
                         }
                     })
